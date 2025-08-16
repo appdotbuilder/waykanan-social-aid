@@ -1,51 +1,117 @@
+import { db } from '../db';
+import { aidTypesTable } from '../db/schema';
 import { type CreateAidTypeInput, type UpdateAidTypeInput, type AidType } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export async function createAidType(input: CreateAidTypeInput): Promise<AidType> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to create a new aid type (e.g., "Bantuan Sembako", 
-    // "Bantuan Tunai", etc.) and store it in the database.
-    return Promise.resolve({
-        id: 0,
+  try {
+    const result = await db.insert(aidTypesTable)
+      .values({
         name: input.name,
         description: input.description || null,
-        requirements: input.requirements || null,
-        is_active: true,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as AidType);
+        requirements: input.requirements || null
+      })
+      .returning()
+      .execute();
+
+    const aidType = result[0];
+    return aidType as AidType;
+  } catch (error) {
+    console.error('Aid type creation failed:', error);
+    throw error;
+  }
 }
 
 export async function getAidTypes(): Promise<AidType[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to fetch all aid types from the database,
-    // optionally filtering by active status.
-    return [];
+  try {
+    const results = await db.select()
+      .from(aidTypesTable)
+      .execute();
+
+    return results as AidType[];
+  } catch (error) {
+    console.error('Failed to fetch aid types:', error);
+    throw error;
+  }
 }
 
 export async function getAidTypeById(id: number): Promise<AidType | null> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to fetch a specific aid type by ID.
-    return null;
+  try {
+    const results = await db.select()
+      .from(aidTypesTable)
+      .where(eq(aidTypesTable.id, id))
+      .execute();
+
+    if (results.length === 0) {
+      return null;
+    }
+
+    const aidType = results[0];
+    return aidType as AidType;
+  } catch (error) {
+    console.error('Failed to fetch aid type by ID:', error);
+    throw error;
+  }
 }
 
 export async function updateAidType(input: UpdateAidTypeInput): Promise<AidType> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to update an existing aid type's information
-    // including name, description, requirements, and active status.
-    return Promise.resolve({
-        id: input.id,
-        name: input.name || 'Updated Aid Type',
-        description: input.description || null,
-        requirements: input.requirements || null,
-        is_active: input.is_active !== undefined ? input.is_active : true,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as AidType);
+  try {
+    // Check if aid type exists
+    const existing = await getAidTypeById(input.id);
+    if (!existing) {
+      throw new Error(`Aid type with ID ${input.id} not found`);
+    }
+
+    // Build update object with only provided fields
+    const updateData: Partial<typeof aidTypesTable.$inferInsert> = {};
+    
+    if (input.name !== undefined) {
+      updateData.name = input.name;
+    }
+    if (input.description !== undefined) {
+      updateData.description = input.description;
+    }
+    if (input.requirements !== undefined) {
+      updateData.requirements = input.requirements;
+    }
+    if (input.is_active !== undefined) {
+      updateData.is_active = input.is_active;
+    }
+
+    // Ensure updated_at is always updated
+    updateData.updated_at = new Date();
+    
+    const result = await db.update(aidTypesTable)
+      .set(updateData)
+      .where(eq(aidTypesTable.id, input.id))
+      .returning()
+      .execute();
+
+    const aidType = result[0];
+    return aidType as AidType;
+  } catch (error) {
+    console.error('Aid type update failed:', error);
+    throw error;
+  }
 }
 
 export async function deleteAidType(id: number): Promise<boolean> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to soft delete an aid type by setting
-    // is_active to false.
+  try {
+    // Check if aid type exists
+    const existing = await getAidTypeById(id);
+    if (!existing) {
+      return false;
+    }
+
+    // Soft delete by setting is_active to false
+    await db.update(aidTypesTable)
+      .set({ is_active: false })
+      .where(eq(aidTypesTable.id, id))
+      .execute();
+
     return true;
+  } catch (error) {
+    console.error('Aid type deletion failed:', error);
+    throw error;
+  }
 }
